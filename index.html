@@ -44,34 +44,31 @@
     </header>
 
     <main class="mx-auto max-w-6xl px-4 py-6 md:px-6">
-      <section class="mb-4 grid gap-3 md:grid-cols-3">
-        <div class="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
-          <p class="text-xs text-slate-500">Total Students</p>
-          <p id="totalStudents" class="text-xl font-semibold text-slate-900">0</p>
-        </div>
-        <div class="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
-          <p class="text-xs text-slate-500">Total Volunteer Hours</p>
-          <p id="totalHours" class="text-xl font-semibold text-slate-900">0</p>
-        </div>
-        <div class="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
-          <p class="text-xs text-slate-500">Certificate Eligible</p>
-          <p id="certificateCount" class="text-xl font-semibold text-slate-900">0</p>
-        </div>
-      </section>
-
-      <section class="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm md:px-6">
+      <!-- Admin Panel — only visible when ?admin=1 -->
+      <section id="adminPanel" class="hidden mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 shadow-sm md:px-6">
         <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p class="text-sm font-medium text-slate-800">Admin Control</p>
-            <p id="adminStatus" class="text-xs text-slate-500">Viewing as guest (IDs are masked).</p>
-          </div>
-          <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <p class="text-sm font-medium text-blue-800">Admin Mode — click any cell to edit</p>
+          <div class="flex flex-wrap gap-2">
+            <button
+              id="addRowBtn"
+              type="button"
+              class="rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-green-700"
+            >
+              + Add Row
+            </button>
+            <button
+              id="resetDataBtn"
+              type="button"
+              class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              Reset Data
+            </button>
             <button
               id="adminLogoutBtn"
               type="button"
-              class="hidden rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              class="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
             >
-              Exit Admin Mode
+              Exit Admin
             </button>
           </div>
         </div>
@@ -79,7 +76,7 @@
 
       <section class="rounded-xl border border-slate-200 bg-white shadow-sm">
         <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3 md:px-6">
-          <h2 class="text-base font-semibold md:text-lg">Points Table</h2>
+          <h2 class="text-base font-semibold md:text-lg">Volunteer Hours Table</h2>
           <button
             id="downloadReportBtn"
             type="button"
@@ -92,13 +89,14 @@
 
         <div class="overflow-x-auto">
           <table class="min-w-full text-left text-sm">
-            <thead class="bg-slate-100 text-slate-700">
+            <thead class="bg-slate-100 text-slate-700 select-none">
               <tr>
-                <th class="px-4 py-3 font-semibold md:px-6">Rank</th>
-                <th class="px-4 py-3 font-semibold md:px-6">Name</th>
-                <th class="px-4 py-3 font-semibold md:px-6">Student ID</th>
-                <th class="px-4 py-3 font-semibold md:px-6">Total Hours</th>
+                <th data-col="rank" class="cursor-pointer whitespace-nowrap px-4 py-3 font-semibold md:px-6">Rank <span class="sort-icon text-slate-400"></span></th>
+                <th data-col="name" class="cursor-pointer whitespace-nowrap px-4 py-3 font-semibold md:px-6">Name <span class="sort-icon text-slate-400"></span></th>
+                <th data-col="studentId" class="cursor-pointer whitespace-nowrap px-4 py-3 font-semibold md:px-6">Student ID <span class="sort-icon text-slate-400"></span></th>
+                <th data-col="totalHours" class="cursor-pointer whitespace-nowrap px-4 py-3 font-semibold md:px-6">Total Hours <span class="sort-icon text-slate-400"></span></th>
                 <th class="px-4 py-3 font-semibold md:px-6">Achievement</th>
+                <th id="actionCol" class="hidden px-4 py-3 font-semibold md:px-6"></th>
               </tr>
             </thead>
             <tbody id="tableBody" class="divide-y divide-slate-200"></tbody>

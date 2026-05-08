@@ -4,11 +4,11 @@ const tableBody = document.getElementById('tableBody');
 const lastUpdate = document.getElementById('lastUpdate');
 const resultCount = document.getElementById('resultCount');
 const downloadReportBtn = document.getElementById('downloadReportBtn');
-const totalStudents = document.getElementById('totalStudents');
-const totalHours = document.getElementById('totalHours');
-const certificateCount = document.getElementById('certificateCount');
+const adminPanel = document.getElementById('adminPanel');
 const adminLogoutBtn = document.getElementById('adminLogoutBtn');
-const adminStatus = document.getElementById('adminStatus');
+const addRowBtn = document.getElementById('addRowBtn');
+const resetDataBtn = document.getElementById('resetDataBtn');
+const actionCol = document.getElementById('actionCol');
 
 const GOLD_CERTIFICATE_HOURS = 100;
 const SILVER_CERTIFICATE_HOURS = 50;
@@ -16,8 +16,13 @@ const SOON_SILVER_MIN = 45;
 const SOON_SILVER_MAX = 49;
 const SOON_GOLD_MIN = 95;
 const SOON_GOLD_MAX = 99;
+const LS_KEY = 'njupt_volunteer_data';
 
 let rows = [];
+let nextId = 1;
+let sortCol = 'rank';
+let sortDir = 'asc';
+
 function isAdminOnLoad() {
   const params = new URLSearchParams(window.location.search);
   return params.get('admin') === '1' || params.get('admin') === 'true';
@@ -29,6 +34,14 @@ function maskStudentId(studentId) {
   if (id.length <= 4) return '*'.repeat(id.length);
   if (id.length <= 6) return `${id.slice(0, 1)}${'*'.repeat(id.length - 2)}${id.slice(-1)}`;
   return `${id.slice(0, 3)}${'*'.repeat(id.length - 5)}${id.slice(-2)}`;
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function getAchievement(hours) {
@@ -56,36 +69,127 @@ function getAchievement(hours) {
   };
 }
 
+function reRankRows() {
+  rows.sort((a, b) => b.totalHours - a.totalHours);
+  rows.forEach((r, i) => { r.rank = i + 1; });
+}
+
+function saveToLocalStorage() {
+  const data = {
+    students: rows.map(({ _id, rank, ...rest }) => rest),
+    lastUpdated: new Date().toISOString(),
+    _savedAt: Date.now()
+  };
+  localStorage.setItem(LS_KEY, JSON.stringify(data));
+}
+
+function getSortedRows(rowsToSort) {
+  return [...rowsToSort].sort((a, b) => {
+    let va = a[sortCol];
+    let vb = b[sortCol];
+    if (typeof va === 'string') va = va.toLowerCase();
+    if (typeof vb === 'string') vb = vb.toLowerCase();
+    if (va < vb) return sortDir === 'asc' ? -1 : 1;
+    if (va > vb) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+}
+
+function updateSortIndicators() {
+  document.querySelectorAll('th[data-col] .sort-icon').forEach((icon) => {
+    const th = icon.closest('th');
+    icon.textContent = th.dataset.col === sortCol ? (sortDir === 'asc' ? '▲' : '▼') : '';
+  });
+}
+
+function handleCellEdit(input, row, field) {
+  const rawVal = input.value.trim();
+  let changed = false;
+
+  if (field === 'totalHours') {
+    const num = Number(rawVal);
+    if (!isNaN(num) && num >= 0 && num !== row.totalHours) {
+      row.totalHours = num;
+      reRankRows();
+      changed = true;
+    } else {
+      input.value = row.totalHours;
+    }
+  } else {
+    if (rawVal && rawVal !== String(row[field])) {
+      row[field] = rawVal;
+      changed = true;
+    } else if (!rawVal) {
+      input.value = row[field];
+    }
+  }
+
+  if (changed) {
+    saveToLocalStorage();
+    filterRows();
+  }
+}
+
 function renderTable(filteredRows) {
   tableBody.innerHTML = '';
+  const colSpan = isAdmin ? 6 : 5;
 
   if (!filteredRows.length) {
-    tableBody.innerHTML =
-      '<tr><td colspan="5" class="px-4 py-6 text-center text-sm text-slate-500 md:px-6">No student found.</td></tr>';
+    tableBody.innerHTML = `<tr><td colspan="${colSpan}" class="px-4 py-6 text-center text-sm text-slate-500 md:px-6">No student found.</td></tr>`;
     resultCount.textContent = '0 records';
     return;
   }
 
-  filteredRows.forEach((row) => {
+  const inputClass = 'w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-sm hover:border-slate-300 focus:border-blue-400 focus:bg-white focus:outline-none';
+
+  getSortedRows(filteredRows).forEach((row) => {
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-50';
-    tr.innerHTML = `
-      <td class="px-4 py-3 md:px-6">${row.rank}</td>
-      <td class="px-4 py-3 md:px-6 font-medium text-slate-900">${row.name}</td>
-      <td class="px-4 py-3 md:px-6">${isAdmin ? row.studentId : maskStudentId(row.studentId)}</td>
-      <td class="px-4 py-3 md:px-6">${row.totalHours}</td>
-      <td class="px-4 py-3 md:px-6">${getAchievement(row.totalHours).html}</td>
-    `;
+
+    if (isAdmin) {
+      tr.innerHTML = `
+        <td class="px-4 py-3 text-slate-500 md:px-6">${row.rank}</td>
+        <td class="px-4 py-3 md:px-6"><input type="text" value="${escapeHtml(row.name)}" class="${inputClass} min-w-[8rem] font-medium text-slate-900" /></td>
+        <td class="px-4 py-3 md:px-6"><input type="text" value="${escapeHtml(String(row.studentId))}" class="${inputClass} min-w-[7rem]" /></td>
+        <td class="px-4 py-3 md:px-6"><input type="number" min="0" value="${row.totalHours}" class="${inputClass} w-20" /></td>
+        <td class="px-4 py-3 md:px-6">${getAchievement(row.totalHours).html}</td>
+        <td class="px-4 py-3 md:px-6"><button class="delete-btn text-xs font-medium text-red-500 hover:text-red-700">Delete</button></td>
+      `;
+
+      const [, nameTd, idTd, hoursTd] = tr.querySelectorAll('td');
+      const nameEl = nameTd.querySelector('input');
+      const idEl = idTd.querySelector('input');
+      const hoursEl = hoursTd.querySelector('input');
+
+      nameEl.addEventListener('blur', () => handleCellEdit(nameEl, row, 'name'));
+      nameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') nameEl.blur(); });
+
+      idEl.addEventListener('blur', () => handleCellEdit(idEl, row, 'studentId'));
+      idEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') idEl.blur(); });
+
+      hoursEl.addEventListener('blur', () => handleCellEdit(hoursEl, row, 'totalHours'));
+      hoursEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') hoursEl.blur(); });
+
+      tr.querySelector('.delete-btn').addEventListener('click', () => {
+        rows = rows.filter((r) => r._id !== row._id);
+        reRankRows();
+        saveToLocalStorage();
+        filterRows();
+      });
+    } else {
+      tr.innerHTML = `
+        <td class="px-4 py-3 md:px-6">${row.rank}</td>
+        <td class="px-4 py-3 font-medium text-slate-900 md:px-6">${escapeHtml(row.name)}</td>
+        <td class="px-4 py-3 md:px-6">${maskStudentId(row.studentId)}</td>
+        <td class="px-4 py-3 md:px-6">${row.totalHours}</td>
+        <td class="px-4 py-3 md:px-6">${getAchievement(row.totalHours).html}</td>
+      `;
+    }
+
     tableBody.appendChild(tr);
   });
 
   resultCount.textContent = `${filteredRows.length} record${filteredRows.length === 1 ? '' : 's'}`;
-}
-
-function updateStats() {
-  totalStudents.textContent = rows.length;
-  totalHours.textContent = rows.reduce((sum, row) => sum + Number(row.totalHours || 0), 0);
-  certificateCount.textContent = rows.filter((row) => row.totalHours >= SILVER_CERTIFICATE_HOURS).length;
 }
 
 function filterRows() {
@@ -94,11 +198,9 @@ function filterRows() {
     renderTable(rows);
     return;
   }
-
-  const filtered = rows.filter((row) => {
-    return row.name.toLowerCase().includes(term) || String(row.studentId).includes(term);
-  });
-
+  const filtered = rows.filter(
+    (row) => row.name.toLowerCase().includes(term) || String(row.studentId).includes(term)
+  );
   renderTable(filtered);
 }
 
@@ -125,26 +227,40 @@ function downloadReportCsv() {
 }
 
 function applyAdminState() {
-  adminLogoutBtn.classList.toggle('hidden', !isAdmin);
-  adminStatus.textContent = isAdmin
-    ? 'Admin mode is enabled (full IDs are visible).'
-    : 'Viewing as guest (IDs are masked).';
+  adminPanel.classList.toggle('hidden', !isAdmin);
+  actionCol.classList.toggle('hidden', !isAdmin);
   if (rows.length > 0) {
     filterRows();
   }
 }
 
+function initRows(students) {
+  rows = [...students]
+    .sort((a, b) => b.totalHours - a.totalHours)
+    .map((student) => ({ ...student, _id: nextId++, rank: 0 }));
+  rows.forEach((r, i) => { r.rank = i + 1; });
+}
+
 async function loadData() {
   try {
     const response = await fetch('data.json', { cache: 'no-cache' });
-    const data = await response.json();
+    const jsonData = await response.json();
 
-    rows = [...data.students]
-      .sort((a, b) => b.totalHours - a.totalHours)
-      .map((student, index) => ({ ...student, rank: index + 1 }));
+    let data = jsonData;
+    const localRaw = localStorage.getItem(LS_KEY);
+    if (localRaw) {
+      try {
+        const local = JSON.parse(localRaw);
+        if (local._savedAt > new Date(jsonData.lastUpdated).getTime()) {
+          data = local;
+        }
+      } catch (_) { /* ignore corrupt cache */ }
+    }
 
-    updateStats();
-    renderTable(rows);
+    nextId = 1;
+    initRows(data.students);
+    filterRows();
+
     const parsedDate = data.lastUpdated ? new Date(data.lastUpdated) : null;
     const updatedAt = parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate : new Date();
     lastUpdate.textContent = `Last Update: ${updatedAt.toLocaleString()}`;
@@ -156,6 +272,21 @@ async function loadData() {
   }
 }
 
+// Sort column headers
+document.querySelectorAll('th[data-col]').forEach((th) => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    if (sortCol === col) {
+      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortCol = col;
+      sortDir = 'asc';
+    }
+    updateSortIndicators();
+    filterRows();
+  });
+});
+
 searchInput.addEventListener('input', filterRows);
 clearSearchBtn.addEventListener('click', () => {
   searchInput.value = '';
@@ -163,9 +294,28 @@ clearSearchBtn.addEventListener('click', () => {
   filterRows();
 });
 downloadReportBtn.addEventListener('click', downloadReportCsv);
+
 adminLogoutBtn.addEventListener('click', () => {
   isAdmin = false;
   applyAdminState();
 });
+
+addRowBtn.addEventListener('click', () => {
+  const newRow = { _id: nextId++, name: 'New Student', studentId: '', totalHours: 0, rank: 0 };
+  rows.push(newRow);
+  reRankRows();
+  saveToLocalStorage();
+  filterRows();
+});
+
+resetDataBtn.addEventListener('click', () => {
+  if (confirm('Reset all data to original? This will clear any admin edits.')) {
+    localStorage.removeItem(LS_KEY);
+    nextId = 1;
+    loadData();
+  }
+});
+
+updateSortIndicators();
 applyAdminState();
 loadData();
