@@ -254,7 +254,7 @@ async function loadData() {
         if (local._savedAt > new Date(jsonData.lastUpdated).getTime()) {
           data = local;
         }
-      } catch (_) { /* ignore corrupt cache */ }
+      } catch (e) { console.warn('Failed to parse cached data, falling back to data.json', e); }
     }
 
     nextId = 1;
