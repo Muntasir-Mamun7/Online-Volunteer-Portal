@@ -4,6 +4,13 @@ const lastUpdate = document.getElementById('lastUpdate');
 const resultCount = document.getElementById('resultCount');
 const downloadReportBtn = document.getElementById('downloadReportBtn');
 
+const GOLD_CERTIFICATE_HOURS = 100;
+const SILVER_CERTIFICATE_HOURS = 50;
+const SOON_SILVER_MIN = 45;
+const SOON_SILVER_MAX = 49;
+const SOON_GOLD_MIN = 95;
+const SOON_GOLD_MAX = 99;
+
 let rows = [];
 
 const isAdmin = (() => {
@@ -23,16 +30,28 @@ function maskStudentId(studentId) {
 }
 
 function getAchievement(hours) {
-  if (hours >= 100) {
-    return '<span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">100h Gold Certificate</span>';
+  if (hours >= GOLD_CERTIFICATE_HOURS) {
+    return {
+      text: '100h Gold Certificate',
+      html: '<span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">100h Gold Certificate</span>'
+    };
   }
-  if (hours >= 50) {
-    return '<span class="inline-flex rounded-full bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-800">50h Silver Certificate</span>';
+  if (hours >= SILVER_CERTIFICATE_HOURS) {
+    return {
+      text: '50h Silver Certificate',
+      html: '<span class="inline-flex rounded-full bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-800">50h Silver Certificate</span>'
+    };
   }
-  if ((hours >= 45 && hours <= 49) || (hours >= 95 && hours <= 99)) {
-    return '<span class="inline-flex rounded-full bg-yellow-100 px-2.5 py-1 text-xs font-medium text-yellow-800">Soon: Outstanding Volunteer</span>';
+  if ((hours >= SOON_SILVER_MIN && hours <= SOON_SILVER_MAX) || (hours >= SOON_GOLD_MIN && hours <= SOON_GOLD_MAX)) {
+    return {
+      text: 'Soon: Outstanding Volunteer',
+      html: '<span class="inline-flex rounded-full bg-yellow-100 px-2.5 py-1 text-xs font-medium text-yellow-800">Soon: Outstanding Volunteer</span>'
+    };
   }
-  return '<span class="text-slate-400">—</span>';
+  return {
+    text: '—',
+    html: '<span class="text-slate-400">—</span>'
+  };
 }
 
 function renderTable(filteredRows) {
@@ -53,7 +72,7 @@ function renderTable(filteredRows) {
       <td class="px-4 py-3 md:px-6 font-medium text-slate-900">${row.name}</td>
       <td class="px-4 py-3 md:px-6">${maskStudentId(row.studentId)}</td>
       <td class="px-4 py-3 md:px-6">${row.totalHours}</td>
-      <td class="px-4 py-3 md:px-6">${getAchievement(row.totalHours)}</td>
+      <td class="px-4 py-3 md:px-6">${getAchievement(row.totalHours).html}</td>
     `;
     tableBody.appendChild(tr);
   });
@@ -78,7 +97,7 @@ function filterRows() {
 function toCsv(data) {
   const header = ['Rank', 'Name', 'Student ID', 'Total Hours', 'Achievement'];
   const lines = data.map((row) => {
-    const achievement = getAchievement(row.totalHours).replace(/<[^>]+>/g, '');
+    const achievement = getAchievement(row.totalHours).text;
     return [row.rank, row.name, row.studentId, row.totalHours, achievement]
       .map((value) => `"${String(value).replaceAll('"', '""')}"`)
       .join(',');
@@ -103,7 +122,7 @@ if (isAdmin) {
 
 async function loadData() {
   try {
-    const response = await fetch('data.json', { cache: 'no-store' });
+    const response = await fetch('data.json', { cache: 'no-cache' });
     const data = await response.json();
 
     rows = [...data.students]
@@ -111,7 +130,8 @@ async function loadData() {
       .map((student, index) => ({ ...student, rank: index + 1 }));
 
     renderTable(rows);
-    lastUpdate.textContent = `Last Update: ${new Date().toLocaleString()}`;
+    const updatedAt = data.lastUpdated ? new Date(data.lastUpdated) : new Date();
+    lastUpdate.textContent = `Last Update: ${updatedAt.toLocaleString()}`;
   } catch (error) {
     tableBody.innerHTML =
       '<tr><td colspan="5" class="px-4 py-6 text-center text-sm text-red-600 md:px-6">Failed to load data.</td></tr>';
