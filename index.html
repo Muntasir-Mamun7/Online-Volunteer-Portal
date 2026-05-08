@@ -50,11 +50,36 @@
           <p class="text-sm font-medium text-blue-800">Admin Mode — click any cell to edit</p>
           <div class="flex flex-wrap gap-2">
             <button
+              id="undoBtn"
+              type="button"
+              disabled
+              title="Undo (Ctrl+Z)"
+              class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              ↩ Undo
+            </button>
+            <button
+              id="redoBtn"
+              type="button"
+              disabled
+              title="Redo (Ctrl+Y)"
+              class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              ↪ Redo
+            </button>
+            <button
               id="addRowBtn"
               type="button"
               class="rounded-md bg-green-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-green-700"
             >
               + Add Row
+            </button>
+            <button
+              id="saveGitHubBtn"
+              type="button"
+              class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-indigo-700"
+            >
+              💾 Save to GitHub
             </button>
             <button
               id="resetDataBtn"
