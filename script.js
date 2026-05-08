@@ -113,7 +113,7 @@ function toCsv(data) {
   return [header.join(','), ...lines].join('\n');
 }
 
-function downloadExcel() {
+function downloadReportCsv() {
   const csv = toCsv(rows);
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -165,7 +165,7 @@ clearSearchBtn.addEventListener('click', () => {
   searchInput.focus();
   renderTable(rows);
 });
-downloadReportBtn.addEventListener('click', downloadExcel);
+downloadReportBtn.addEventListener('click', downloadReportCsv);
 enableAdminBtn.addEventListener('click', () => {
   isAdmin = true;
   localStorage.setItem('portalAdmin', 'true');
