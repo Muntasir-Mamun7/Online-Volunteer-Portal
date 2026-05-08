@@ -1,8 +1,14 @@
 const searchInput = document.getElementById('searchInput');
+const clearSearchBtn = document.getElementById('clearSearchBtn');
 const tableBody = document.getElementById('tableBody');
 const lastUpdate = document.getElementById('lastUpdate');
 const resultCount = document.getElementById('resultCount');
 const downloadReportBtn = document.getElementById('downloadReportBtn');
+const totalStudents = document.getElementById('totalStudents');
+const totalHours = document.getElementById('totalHours');
+const certificateCount = document.getElementById('certificateCount');
+const adminLogoutBtn = document.getElementById('adminLogoutBtn');
+const adminStatus = document.getElementById('adminStatus');
 
 const GOLD_CERTIFICATE_HOURS = 100;
 const SILVER_CERTIFICATE_HOURS = 50;
@@ -12,15 +18,11 @@ const SOON_GOLD_MIN = 95;
 const SOON_GOLD_MAX = 99;
 
 let rows = [];
-
-const isAdmin = (() => {
+function isAdminOnLoad() {
   const params = new URLSearchParams(window.location.search);
-  return params.get('admin') === '1' || params.get('admin') === 'true' || localStorage.getItem('portalAdmin') === 'true';
-})();
-
-if (isAdmin) {
-  downloadReportBtn.classList.remove('hidden');
+  return params.get('admin') === '1' || params.get('admin') === 'true';
 }
+let isAdmin = isAdminOnLoad();
 
 function maskStudentId(studentId) {
   const id = String(studentId);
@@ -70,7 +72,7 @@ function renderTable(filteredRows) {
     tr.innerHTML = `
       <td class="px-4 py-3 md:px-6">${row.rank}</td>
       <td class="px-4 py-3 md:px-6 font-medium text-slate-900">${row.name}</td>
-      <td class="px-4 py-3 md:px-6">${maskStudentId(row.studentId)}</td>
+      <td class="px-4 py-3 md:px-6">${isAdmin ? row.studentId : maskStudentId(row.studentId)}</td>
       <td class="px-4 py-3 md:px-6">${row.totalHours}</td>
       <td class="px-4 py-3 md:px-6">${getAchievement(row.totalHours).html}</td>
     `;
@@ -78,6 +80,12 @@ function renderTable(filteredRows) {
   });
 
   resultCount.textContent = `${filteredRows.length} record${filteredRows.length === 1 ? '' : 's'}`;
+}
+
+function updateStats() {
+  totalStudents.textContent = rows.length;
+  totalHours.textContent = rows.reduce((sum, row) => sum + Number(row.totalHours || 0), 0);
+  certificateCount.textContent = rows.filter((row) => row.totalHours >= SILVER_CERTIFICATE_HOURS).length;
 }
 
 function filterRows() {
@@ -105,19 +113,25 @@ function toCsv(data) {
   return [header.join(','), ...lines].join('\n');
 }
 
-function downloadCsv() {
+function downloadReportCsv() {
   const csv = toCsv(rows);
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'volunteer-report.csv';
+  link.download = 'njupt-student-volunteer-report.csv';
   link.click();
   URL.revokeObjectURL(url);
 }
 
-if (isAdmin) {
-  downloadReportBtn.addEventListener('click', downloadCsv);
+function applyAdminState() {
+  adminLogoutBtn.classList.toggle('hidden', !isAdmin);
+  adminStatus.textContent = isAdmin
+    ? 'Admin mode is enabled (full IDs are visible).'
+    : 'Viewing as guest (IDs are masked).';
+  if (rows.length > 0) {
+    filterRows();
+  }
 }
 
 async function loadData() {
@@ -129,6 +143,7 @@ async function loadData() {
       .sort((a, b) => b.totalHours - a.totalHours)
       .map((student, index) => ({ ...student, rank: index + 1 }));
 
+    updateStats();
     renderTable(rows);
     const parsedDate = data.lastUpdated ? new Date(data.lastUpdated) : null;
     const updatedAt = parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate : new Date();
@@ -142,4 +157,15 @@ async function loadData() {
 }
 
 searchInput.addEventListener('input', filterRows);
+clearSearchBtn.addEventListener('click', () => {
+  searchInput.value = '';
+  searchInput.focus();
+  filterRows();
+});
+downloadReportBtn.addEventListener('click', downloadReportCsv);
+adminLogoutBtn.addEventListener('click', () => {
+  isAdmin = false;
+  applyAdminState();
+});
+applyAdminState();
 loadData();
