@@ -7,7 +7,6 @@ const downloadReportBtn = document.getElementById('downloadReportBtn');
 const totalStudents = document.getElementById('totalStudents');
 const totalHours = document.getElementById('totalHours');
 const certificateCount = document.getElementById('certificateCount');
-const enableAdminBtn = document.getElementById('enableAdminBtn');
 const adminLogoutBtn = document.getElementById('adminLogoutBtn');
 const adminStatus = document.getElementById('adminStatus');
 
@@ -19,11 +18,15 @@ const SOON_GOLD_MIN = 95;
 const SOON_GOLD_MAX = 99;
 
 let rows = [];
-function getInitialAdminState() {
+function isAdminOnLoad() {
   const params = new URLSearchParams(window.location.search);
-  return params.get('admin') === '1' || params.get('admin') === 'true' || localStorage.getItem('portalAdmin') === 'true';
+  const isAdminFromUrl = params.get('admin') === '1' || params.get('admin') === 'true';
+  if (isAdminFromUrl) {
+    localStorage.setItem('portalAdmin', 'true');
+  }
+  return isAdminFromUrl || localStorage.getItem('portalAdmin') === 'true';
 }
-let isAdmin = getInitialAdminState();
+let isAdmin = isAdminOnLoad();
 
 function maskStudentId(studentId) {
   const id = String(studentId);
@@ -126,11 +129,10 @@ function downloadReportCsv() {
 }
 
 function applyAdminState() {
-  enableAdminBtn.classList.toggle('hidden', isAdmin);
   adminLogoutBtn.classList.toggle('hidden', !isAdmin);
   adminStatus.textContent = isAdmin
     ? 'Admin mode is enabled (full IDs are visible).'
-    : 'Viewing as guest (IDs are masked). Add ?admin=1 to URL or use button to enable admin mode on this device.';
+    : 'Viewing as guest (IDs are masked). Add ?admin=1 to URL to enable admin mode on this device.';
   if (rows.length > 0) {
     filterRows();
   }
@@ -165,11 +167,6 @@ clearSearchBtn.addEventListener('click', () => {
   filterRows();
 });
 downloadReportBtn.addEventListener('click', downloadReportCsv);
-enableAdminBtn.addEventListener('click', () => {
-  isAdmin = true;
-  localStorage.setItem('portalAdmin', 'true');
-  applyAdminState();
-});
 adminLogoutBtn.addEventListener('click', () => {
   isAdmin = false;
   localStorage.removeItem('portalAdmin');
