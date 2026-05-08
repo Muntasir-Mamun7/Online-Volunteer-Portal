@@ -1,0 +1,30 @@
+{
+  "lastUpdated": "2026-05-08T09:04:10+08:00",
+  "students": [
+    {
+      "name": "Ariana Chen",
+      "studentId": "2024123456",
+      "totalHours": 112
+    },
+    {
+      "name": "Mohammad Rahman",
+      "studentId": "2024234567",
+      "totalHours": 98
+    },
+    {
+      "name": "Lina Zhao",
+      "studentId": "2024345678",
+      "totalHours": 76
+    },
+    {
+      "name": "Irfan Kabir",
+      "studentId": "2024456789",
+      "totalHours": 49
+    },
+    {
+      "name": "Nadia Islam",
+      "studentId": "2024567890",
+      "totalHours": 33
+    }
+  ]
+}
