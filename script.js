@@ -99,7 +99,7 @@ function toCsv(data) {
   const lines = data.map((row) => {
     const achievement = getAchievement(row.totalHours).text;
     return [row.rank, row.name, row.studentId, row.totalHours, achievement]
-      .map((value) => `"${String(value).replaceAll('"', '""')}"`)
+      .map((value) => `"${String(value).replace(/"/g, '""')}"`)
       .join(',');
   });
   return [header.join(','), ...lines].join('\n');
