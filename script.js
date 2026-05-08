@@ -1,8 +1,16 @@
 const searchInput = document.getElementById('searchInput');
+const clearSearchBtn = document.getElementById('clearSearchBtn');
 const tableBody = document.getElementById('tableBody');
 const lastUpdate = document.getElementById('lastUpdate');
 const resultCount = document.getElementById('resultCount');
 const downloadReportBtn = document.getElementById('downloadReportBtn');
+const totalStudents = document.getElementById('totalStudents');
+const totalHours = document.getElementById('totalHours');
+const certificateCount = document.getElementById('certificateCount');
+const adminPassword = document.getElementById('adminPassword');
+const adminLoginBtn = document.getElementById('adminLoginBtn');
+const adminLogoutBtn = document.getElementById('adminLogoutBtn');
+const adminStatus = document.getElementById('adminStatus');
 
 const GOLD_CERTIFICATE_HOURS = 100;
 const SILVER_CERTIFICATE_HOURS = 50;
@@ -10,16 +18,18 @@ const SOON_SILVER_MIN = 45;
 const SOON_SILVER_MAX = 49;
 const SOON_GOLD_MIN = 95;
 const SOON_GOLD_MAX = 99;
+const ADMIN_PASSWORD = 'njupt-admin';
 
 let rows = [];
+let isAdmin = false;
 
-const isAdmin = (() => {
+const hasAdminAccess = (() => {
   const params = new URLSearchParams(window.location.search);
   return params.get('admin') === '1' || params.get('admin') === 'true' || localStorage.getItem('portalAdmin') === 'true';
 })();
 
-if (isAdmin) {
-  downloadReportBtn.classList.remove('hidden');
+if (hasAdminAccess) {
+  isAdmin = true;
 }
 
 function maskStudentId(studentId) {
@@ -70,7 +80,7 @@ function renderTable(filteredRows) {
     tr.innerHTML = `
       <td class="px-4 py-3 md:px-6">${row.rank}</td>
       <td class="px-4 py-3 md:px-6 font-medium text-slate-900">${row.name}</td>
-      <td class="px-4 py-3 md:px-6">${maskStudentId(row.studentId)}</td>
+      <td class="px-4 py-3 md:px-6">${isAdmin ? row.studentId : maskStudentId(row.studentId)}</td>
       <td class="px-4 py-3 md:px-6">${row.totalHours}</td>
       <td class="px-4 py-3 md:px-6">${getAchievement(row.totalHours).html}</td>
     `;
@@ -78,6 +88,12 @@ function renderTable(filteredRows) {
   });
 
   resultCount.textContent = `${filteredRows.length} record${filteredRows.length === 1 ? '' : 's'}`;
+}
+
+function updateStats() {
+  totalStudents.textContent = rows.length;
+  totalHours.textContent = rows.reduce((sum, row) => sum + Number(row.totalHours || 0), 0);
+  certificateCount.textContent = rows.filter((row) => row.totalHours >= SILVER_CERTIFICATE_HOURS).length;
 }
 
 function filterRows() {
@@ -94,30 +110,40 @@ function filterRows() {
   renderTable(filtered);
 }
 
-function toCsv(data) {
-  const header = ['Rank', 'Name', 'Student ID', 'Total Hours', 'Achievement'];
-  const lines = data.map((row) => {
-    const achievement = getAchievement(row.totalHours).text;
-    return [row.rank, row.name, row.studentId, row.totalHours, achievement]
-      .map((value) => `"${String(value).replace(/"/g, '""')}"`)
-      .join(',');
-  });
-  return [header.join(','), ...lines].join('\n');
+function toExcelTable(data) {
+  const header = ['Rank', 'Name', 'Student ID', 'Total Hours', 'Achievement']
+    .map((col) => `<th>${col}</th>`)
+    .join('');
+  const body = data
+    .map((row) => {
+      const achievement = getAchievement(row.totalHours).text;
+      return `<tr><td>${row.rank}</td><td>${row.name}</td><td>${row.studentId}</td><td>${row.totalHours}</td><td>${achievement}</td></tr>`;
+    })
+    .join('');
+  return `<!doctype html><html><head><meta charset="utf-8"></head><body><table border="1"><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table></body></html>`;
 }
 
-function downloadCsv() {
-  const csv = toCsv(rows);
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+function downloadExcel() {
+  const excelMarkup = toExcelTable(rows);
+  const blob = new Blob([excelMarkup], { type: 'application/vnd.ms-excel;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'volunteer-report.csv';
+  link.download = 'njupt-student-volunteer-report.xls';
   link.click();
   URL.revokeObjectURL(url);
 }
 
-if (isAdmin) {
-  downloadReportBtn.addEventListener('click', downloadCsv);
+function applyAdminState(statusMessage) {
+  adminLoginBtn.classList.toggle('hidden', isAdmin);
+  adminLogoutBtn.classList.toggle('hidden', !isAdmin);
+  adminPassword.classList.toggle('hidden', isAdmin);
+  if (statusMessage) {
+    adminStatus.textContent = statusMessage;
+  } else {
+    adminStatus.textContent = isAdmin ? 'Admin mode is enabled (full IDs are visible).' : 'Viewing as guest (IDs are masked).';
+  }
+  filterRows();
 }
 
 async function loadData() {
@@ -129,6 +155,7 @@ async function loadData() {
       .sort((a, b) => b.totalHours - a.totalHours)
       .map((student, index) => ({ ...student, rank: index + 1 }));
 
+    updateStats();
     renderTable(rows);
     const parsedDate = data.lastUpdated ? new Date(data.lastUpdated) : null;
     const updatedAt = parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate : new Date();
@@ -142,4 +169,31 @@ async function loadData() {
 }
 
 searchInput.addEventListener('input', filterRows);
+clearSearchBtn.addEventListener('click', () => {
+  searchInput.value = '';
+  searchInput.focus();
+  renderTable(rows);
+});
+downloadReportBtn.addEventListener('click', downloadExcel);
+adminLoginBtn.addEventListener('click', () => {
+  const provided = adminPassword.value.trim();
+  if (!provided) {
+    applyAdminState('Please enter admin password.');
+    return;
+  }
+  if (provided === ADMIN_PASSWORD) {
+    isAdmin = true;
+    localStorage.setItem('portalAdmin', 'true');
+    adminPassword.value = '';
+    applyAdminState();
+    return;
+  }
+  applyAdminState('Incorrect password. Please try again.');
+});
+adminLogoutBtn.addEventListener('click', () => {
+  isAdmin = false;
+  localStorage.removeItem('portalAdmin');
+  applyAdminState();
+});
+applyAdminState();
 loadData();
