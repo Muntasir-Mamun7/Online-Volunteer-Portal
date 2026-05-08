@@ -19,10 +19,11 @@ const SOON_GOLD_MIN = 95;
 const SOON_GOLD_MAX = 99;
 
 let rows = [];
-let isAdmin = (() => {
+function getInitialAdminState() {
   const params = new URLSearchParams(window.location.search);
   return params.get('admin') === '1' || params.get('admin') === 'true' || localStorage.getItem('portalAdmin') === 'true';
-})();
+}
+let isAdmin = getInitialAdminState();
 
 function maskStudentId(studentId) {
   const id = String(studentId);
@@ -124,16 +125,12 @@ function downloadReportCsv() {
   URL.revokeObjectURL(url);
 }
 
-function applyAdminState(statusMessage) {
+function applyAdminState() {
   enableAdminBtn.classList.toggle('hidden', isAdmin);
   adminLogoutBtn.classList.toggle('hidden', !isAdmin);
-  if (statusMessage) {
-    adminStatus.textContent = statusMessage;
-  } else {
-    adminStatus.textContent = isAdmin
-      ? 'Admin mode is enabled (full IDs are visible).'
-      : 'Viewing as guest (IDs are masked). Add ?admin=1 to URL or use button to enable admin mode on this device.';
-  }
+  adminStatus.textContent = isAdmin
+    ? 'Admin mode is enabled (full IDs are visible).'
+    : 'Viewing as guest (IDs are masked). Add ?admin=1 to URL or use button to enable admin mode on this device.';
   if (rows.length > 0) {
     filterRows();
   }
