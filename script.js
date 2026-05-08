@@ -20,11 +20,7 @@ const SOON_GOLD_MAX = 99;
 let rows = [];
 function isAdminOnLoad() {
   const params = new URLSearchParams(window.location.search);
-  const isAdminFromUrl = params.get('admin') === '1' || params.get('admin') === 'true';
-  if (isAdminFromUrl) {
-    localStorage.setItem('portalAdmin', 'true');
-  }
-  return isAdminFromUrl || localStorage.getItem('portalAdmin') === 'true';
+  return params.get('admin') === '1' || params.get('admin') === 'true';
 }
 let isAdmin = isAdminOnLoad();
 
@@ -132,7 +128,7 @@ function applyAdminState() {
   adminLogoutBtn.classList.toggle('hidden', !isAdmin);
   adminStatus.textContent = isAdmin
     ? 'Admin mode is enabled (full IDs are visible).'
-    : 'Viewing as guest (IDs are masked). Add ?admin=1 to URL to enable admin mode on this device.';
+    : 'Viewing as guest (IDs are masked).';
   if (rows.length > 0) {
     filterRows();
   }
@@ -169,7 +165,6 @@ clearSearchBtn.addEventListener('click', () => {
 downloadReportBtn.addEventListener('click', downloadReportCsv);
 adminLogoutBtn.addEventListener('click', () => {
   isAdmin = false;
-  localStorage.removeItem('portalAdmin');
   applyAdminState();
 });
 applyAdminState();
