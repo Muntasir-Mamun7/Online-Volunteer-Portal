@@ -134,7 +134,9 @@ function applyAdminState(statusMessage) {
       ? 'Admin mode is enabled (full IDs are visible).'
       : 'Viewing as guest (IDs are masked). Add ?admin=1 to URL or use button to enable admin mode on this device.';
   }
-  filterRows();
+  if (rows.length > 0) {
+    filterRows();
+  }
 }
 
 async function loadData() {
@@ -163,7 +165,7 @@ searchInput.addEventListener('input', filterRows);
 clearSearchBtn.addEventListener('click', () => {
   searchInput.value = '';
   searchInput.focus();
-  renderTable(rows);
+  filterRows();
 });
 downloadReportBtn.addEventListener('click', downloadReportCsv);
 enableAdminBtn.addEventListener('click', () => {
