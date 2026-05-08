@@ -130,7 +130,8 @@ async function loadData() {
       .map((student, index) => ({ ...student, rank: index + 1 }));
 
     renderTable(rows);
-    const updatedAt = data.lastUpdated ? new Date(data.lastUpdated) : new Date();
+    const parsedDate = data.lastUpdated ? new Date(data.lastUpdated) : null;
+    const updatedAt = parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate : new Date();
     lastUpdate.textContent = `Last Update: ${updatedAt.toLocaleString()}`;
   } catch (error) {
     tableBody.innerHTML =
