@@ -7,8 +7,7 @@ const downloadReportBtn = document.getElementById('downloadReportBtn');
 const totalStudents = document.getElementById('totalStudents');
 const totalHours = document.getElementById('totalHours');
 const certificateCount = document.getElementById('certificateCount');
-const adminPassword = document.getElementById('adminPassword');
-const adminLoginBtn = document.getElementById('adminLoginBtn');
+const enableAdminBtn = document.getElementById('enableAdminBtn');
 const adminLogoutBtn = document.getElementById('adminLogoutBtn');
 const adminStatus = document.getElementById('adminStatus');
 
@@ -18,19 +17,12 @@ const SOON_SILVER_MIN = 45;
 const SOON_SILVER_MAX = 49;
 const SOON_GOLD_MIN = 95;
 const SOON_GOLD_MAX = 99;
-const ADMIN_PASSWORD = 'njupt-admin';
 
 let rows = [];
-let isAdmin = false;
-
-const hasAdminAccess = (() => {
+let isAdmin = (() => {
   const params = new URLSearchParams(window.location.search);
   return params.get('admin') === '1' || params.get('admin') === 'true' || localStorage.getItem('portalAdmin') === 'true';
 })();
-
-if (hasAdminAccess) {
-  isAdmin = true;
-}
 
 function maskStudentId(studentId) {
   const id = String(studentId);
@@ -110,38 +102,37 @@ function filterRows() {
   renderTable(filtered);
 }
 
-function toExcelTable(data) {
-  const header = ['Rank', 'Name', 'Student ID', 'Total Hours', 'Achievement']
-    .map((col) => `<th>${col}</th>`)
-    .join('');
-  const body = data
-    .map((row) => {
-      const achievement = getAchievement(row.totalHours).text;
-      return `<tr><td>${row.rank}</td><td>${row.name}</td><td>${row.studentId}</td><td>${row.totalHours}</td><td>${achievement}</td></tr>`;
-    })
-    .join('');
-  return `<!doctype html><html><head><meta charset="utf-8"></head><body><table border="1"><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table></body></html>`;
+function toCsv(data) {
+  const header = ['Rank', 'Name', 'Student ID', 'Total Hours', 'Achievement'];
+  const lines = data.map((row) => {
+    const achievement = getAchievement(row.totalHours).text;
+    return [row.rank, row.name, row.studentId, row.totalHours, achievement]
+      .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+      .join(',');
+  });
+  return [header.join(','), ...lines].join('\n');
 }
 
 function downloadExcel() {
-  const excelMarkup = toExcelTable(rows);
-  const blob = new Blob([excelMarkup], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+  const csv = toCsv(rows);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'njupt-student-volunteer-report.xls';
+  link.download = 'njupt-student-volunteer-report.csv';
   link.click();
   URL.revokeObjectURL(url);
 }
 
 function applyAdminState(statusMessage) {
-  adminLoginBtn.classList.toggle('hidden', isAdmin);
+  enableAdminBtn.classList.toggle('hidden', isAdmin);
   adminLogoutBtn.classList.toggle('hidden', !isAdmin);
-  adminPassword.classList.toggle('hidden', isAdmin);
   if (statusMessage) {
     adminStatus.textContent = statusMessage;
   } else {
-    adminStatus.textContent = isAdmin ? 'Admin mode is enabled (full IDs are visible).' : 'Viewing as guest (IDs are masked).';
+    adminStatus.textContent = isAdmin
+      ? 'Admin mode is enabled (full IDs are visible).'
+      : 'Viewing as guest (IDs are masked). Add ?admin=1 to URL or use button to enable admin mode on this device.';
   }
   filterRows();
 }
@@ -175,20 +166,10 @@ clearSearchBtn.addEventListener('click', () => {
   renderTable(rows);
 });
 downloadReportBtn.addEventListener('click', downloadExcel);
-adminLoginBtn.addEventListener('click', () => {
-  const provided = adminPassword.value.trim();
-  if (!provided) {
-    applyAdminState('Please enter admin password.');
-    return;
-  }
-  if (provided === ADMIN_PASSWORD) {
-    isAdmin = true;
-    localStorage.setItem('portalAdmin', 'true');
-    adminPassword.value = '';
-    applyAdminState();
-    return;
-  }
-  applyAdminState('Incorrect password. Please try again.');
+enableAdminBtn.addEventListener('click', () => {
+  isAdmin = true;
+  localStorage.setItem('portalAdmin', 'true');
+  applyAdminState();
 });
 adminLogoutBtn.addEventListener('click', () => {
   isAdmin = false;
