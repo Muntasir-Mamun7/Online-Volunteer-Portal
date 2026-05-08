@@ -9,6 +9,9 @@ const adminLogoutBtn = document.getElementById('adminLogoutBtn');
 const addRowBtn = document.getElementById('addRowBtn');
 const resetDataBtn = document.getElementById('resetDataBtn');
 const actionCol = document.getElementById('actionCol');
+const undoBtn = document.getElementById('undoBtn');
+const redoBtn = document.getElementById('redoBtn');
+const saveGitHubBtn = document.getElementById('saveGitHubBtn');
 
 const GOLD_CERTIFICATE_HOURS = 100;
 const SILVER_CERTIFICATE_HOURS = 50;
@@ -17,11 +20,19 @@ const SOON_SILVER_MAX = 49;
 const SOON_GOLD_MIN = 95;
 const SOON_GOLD_MAX = 99;
 const LS_KEY = 'njupt_volunteer_data';
+const GITHUB_OWNER = 'Muntasir-Mamun7';
+const GITHUB_REPO = 'Online-Volunteer-Portal';
+const GITHUB_FILE_PATH = 'data.json';
 
 let rows = [];
 let nextId = 1;
 let sortCol = 'rank';
 let sortDir = 'asc';
+
+// ===== Undo / Redo =====
+let undoStack = [];
+let redoStack = [];
+let preEditSnapshot = null;
 
 function isAdminOnLoad() {
   const params = new URLSearchParams(window.location.search);
@@ -102,6 +113,49 @@ function updateSortIndicators() {
   });
 }
 
+// ===== Undo / Redo helpers =====
+function snapshotRows() {
+  return rows.map(r => ({ ...r }));
+}
+
+function updateUndoRedoBtns() {
+  undoBtn.disabled = undoStack.length === 0;
+  redoBtn.disabled = redoStack.length === 0;
+}
+
+// Call after a confirmed edit: pushes snapshot to undoStack and resets redo.
+function commitEdit(snapshot) {
+  if (snapshot === null) return;
+  undoStack.push(snapshot);
+  redoStack = [];
+  updateUndoRedoBtns();
+}
+
+function applySnapshot(snapshot) {
+  rows = snapshot.map(r => ({ ...r }));
+  nextId = rows.reduce((max, r) => Math.max(max, r._id), 0) + 1;
+  rows.sort((a, b) => b.totalHours - a.totalHours);
+  rows.forEach((r, i) => { r.rank = i + 1; });
+  saveToLocalStorage();
+  filterRows();
+}
+
+function undo() {
+  if (!undoStack.length) return;
+  redoStack.push(snapshotRows());
+  applySnapshot(undoStack.pop());
+  updateUndoRedoBtns();
+}
+
+function redo() {
+  if (!redoStack.length) return;
+  undoStack.push(snapshotRows());
+  applySnapshot(redoStack.pop());
+  updateUndoRedoBtns();
+}
+
+// ===== Cell editing =====
+// Returns true if the value actually changed.
 function handleCellEdit(input, row, field) {
   const rawVal = input.value.trim();
   let changed = false;
@@ -128,6 +182,7 @@ function handleCellEdit(input, row, field) {
     saveToLocalStorage();
     filterRows();
   }
+  return changed;
 }
 
 function renderTable(filteredRows) {
@@ -161,16 +216,30 @@ function renderTable(filteredRows) {
       const idEl = idTd.querySelector('input');
       const hoursEl = hoursTd.querySelector('input');
 
-      nameEl.addEventListener('blur', () => handleCellEdit(nameEl, row, 'name'));
+      // Capture state before the edit begins so undo restores to pre-edit values.
+      nameEl.addEventListener('focus', () => { preEditSnapshot = snapshotRows(); });
+      nameEl.addEventListener('blur', () => {
+        if (handleCellEdit(nameEl, row, 'name')) commitEdit(preEditSnapshot);
+        preEditSnapshot = null;
+      });
       nameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') nameEl.blur(); });
 
-      idEl.addEventListener('blur', () => handleCellEdit(idEl, row, 'studentId'));
+      idEl.addEventListener('focus', () => { preEditSnapshot = snapshotRows(); });
+      idEl.addEventListener('blur', () => {
+        if (handleCellEdit(idEl, row, 'studentId')) commitEdit(preEditSnapshot);
+        preEditSnapshot = null;
+      });
       idEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') idEl.blur(); });
 
-      hoursEl.addEventListener('blur', () => handleCellEdit(hoursEl, row, 'totalHours'));
+      hoursEl.addEventListener('focus', () => { preEditSnapshot = snapshotRows(); });
+      hoursEl.addEventListener('blur', () => {
+        if (handleCellEdit(hoursEl, row, 'totalHours')) commitEdit(preEditSnapshot);
+        preEditSnapshot = null;
+      });
       hoursEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') hoursEl.blur(); });
 
       tr.querySelector('.delete-btn').addEventListener('click', () => {
+        commitEdit(snapshotRows());
         rows = rows.filter((r) => r._id !== row._id);
         reRankRows();
         saveToLocalStorage();
@@ -272,6 +341,98 @@ async function loadData() {
   }
 }
 
+// ===== Save to GitHub via Contents API =====
+async function saveToGitHub() {
+  let token = sessionStorage.getItem('gh_admin_token');
+  if (!token) {
+    token = prompt(
+      'Enter your GitHub Personal Access Token (with repo write access).\n' +
+      'This will commit data.json so changes are visible to everyone.'
+    );
+    if (!token) return;
+    token = token.trim();
+    sessionStorage.setItem('gh_admin_token', token);
+  }
+
+  const originalText = saveGitHubBtn.textContent;
+  saveGitHubBtn.textContent = 'Saving…';
+  saveGitHubBtn.disabled = true;
+
+  try {
+    // Fetch the current file SHA (required by the GitHub API to update a file).
+    const getRes = await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_FILE_PATH}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28'
+        }
+      }
+    );
+
+    if (!getRes.ok) {
+      if (getRes.status === 401 || getRes.status === 403) {
+        sessionStorage.removeItem('gh_admin_token');
+        alert('GitHub token is invalid or lacks write permission. Token cleared — please try again.');
+      } else {
+        alert(`GitHub API error fetching file: ${getRes.status} ${getRes.statusText}`);
+      }
+      saveGitHubBtn.textContent = originalText;
+      saveGitHubBtn.disabled = false;
+      return;
+    }
+
+    const fileInfo = await getRes.json();
+    const sha = fileInfo.sha;
+
+    const now = new Date().toISOString();
+    const payload = {
+      lastUpdated: now,
+      students: rows.map(({ _id, rank, ...rest }) => rest)
+    };
+    // Encode UTF-8 content to base64 using TextEncoder for full Unicode support.
+    const contentBase64 = btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(payload, null, 2) + '\n')));
+
+    const putRes = await fetch(
+      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${GITHUB_FILE_PATH}`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: 'Update volunteer data via admin portal',
+          content: contentBase64,
+          sha
+        })
+      }
+    );
+
+    if (putRes.ok) {
+      lastUpdate.textContent = `Last Update: ${new Date(now).toLocaleString()}`;
+      localStorage.removeItem(LS_KEY); // repo is now authoritative; drop the local draft
+      saveGitHubBtn.textContent = '✓ Saved!';
+      setTimeout(() => {
+        saveGitHubBtn.textContent = '💾 Save to GitHub';
+        saveGitHubBtn.disabled = false;
+      }, 2500);
+    } else {
+      const err = await putRes.json().catch(() => ({}));
+      alert(`Failed to save to GitHub: ${err.message || putRes.statusText}`);
+      saveGitHubBtn.textContent = originalText;
+      saveGitHubBtn.disabled = false;
+    }
+  } catch (err) {
+    alert(`Error saving to GitHub: ${err.message}`);
+    saveGitHubBtn.textContent = originalText;
+    saveGitHubBtn.disabled = false;
+  }
+}
+
 // Sort column headers
 document.querySelectorAll('th[data-col]').forEach((th) => {
   th.addEventListener('click', () => {
@@ -297,10 +458,15 @@ downloadReportBtn.addEventListener('click', downloadReportCsv);
 
 adminLogoutBtn.addEventListener('click', () => {
   isAdmin = false;
+  undoStack = [];
+  redoStack = [];
+  preEditSnapshot = null;
+  updateUndoRedoBtns();
   applyAdminState();
 });
 
 addRowBtn.addEventListener('click', () => {
+  commitEdit(snapshotRows());
   const newRow = { _id: nextId++, name: 'New Student', studentId: '', totalHours: 0, rank: 0 };
   rows.push(newRow);
   reRankRows();
@@ -311,8 +477,29 @@ addRowBtn.addEventListener('click', () => {
 resetDataBtn.addEventListener('click', () => {
   if (confirm('Reset all data to original? This will clear any admin edits.')) {
     localStorage.removeItem(LS_KEY);
+    undoStack = [];
+    redoStack = [];
+    preEditSnapshot = null;
+    updateUndoRedoBtns();
     nextId = 1;
     loadData();
+  }
+});
+
+undoBtn.addEventListener('click', undo);
+redoBtn.addEventListener('click', redo);
+saveGitHubBtn.addEventListener('click', saveToGitHub);
+
+// Keyboard shortcuts: Ctrl+Z = undo, Ctrl+Y or Ctrl+Shift+Z = redo
+document.addEventListener('keydown', (e) => {
+  if (!isAdmin) return;
+  const ctrl = e.ctrlKey || e.metaKey;
+  if (ctrl && e.key === 'z' && !e.shiftKey) {
+    e.preventDefault();
+    undo();
+  } else if (ctrl && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+    e.preventDefault();
+    redo();
   }
 });
 
