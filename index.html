@@ -82,6 +82,14 @@
               💾 Save to GitHub
             </button>
             <button
+              id="configTokenBtn"
+              type="button"
+              title="Set GitHub token for saving"
+              class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              ⚙ Token
+            </button>
+            <button
               id="resetDataBtn"
               type="button"
               class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
@@ -96,6 +104,31 @@
               Exit Admin
             </button>
           </div>
+        </div>
+        <!-- Token configuration row — hidden by default, toggled by ⚙ Token button -->
+        <div id="tokenConfigRow" class="hidden mt-3 flex flex-col gap-2 border-t border-blue-200 pt-3 md:flex-row md:items-center">
+          <label class="text-xs font-medium text-blue-800 whitespace-nowrap">GitHub Token:</label>
+          <input
+            id="tokenInput"
+            type="password"
+            placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+            class="flex-1 rounded border border-slate-300 bg-white px-2 py-1 text-xs font-mono outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+          />
+          <button
+            id="saveTokenBtn"
+            type="button"
+            class="rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700"
+          >
+            Save Token
+          </button>
+          <button
+            id="clearTokenBtn"
+            type="button"
+            class="rounded border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Clear Token
+          </button>
+          <span id="tokenStatus" class="text-xs text-slate-500"></span>
         </div>
       </section>
 
