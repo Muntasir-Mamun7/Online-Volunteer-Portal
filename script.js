@@ -344,20 +344,18 @@ async function loadData() {
 
 // ===== Save to GitHub via Contents API =====
 function getGitHubToken() {
-  const token = localStorage.getItem(GITHUB_TOKEN_STORAGE_KEY) ||
-    sessionStorage.getItem(GITHUB_TOKEN_STORAGE_KEY);
+  const token = sessionStorage.getItem(GITHUB_TOKEN_STORAGE_KEY);
   return token ? token.trim() : '';
 }
 
 function clearGitHubToken() {
-  localStorage.removeItem(GITHUB_TOKEN_STORAGE_KEY);
   sessionStorage.removeItem(GITHUB_TOKEN_STORAGE_KEY);
 }
 
 async function saveToGitHub() {
   const token = getGitHubToken();
   if (!token) {
-    alert('Missing GitHub token. Configure it in browser storage as described in the Admin saving section of the README.');
+    alert('Missing GitHub token. Configure it in sessionStorage as described in the Admin saving section of the README.');
     return;
   }
 
