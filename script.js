@@ -20,6 +20,7 @@ const SOON_SILVER_MAX = 49;
 const SOON_GOLD_MIN = 95;
 const SOON_GOLD_MAX = 99;
 const LS_KEY = 'njupt_volunteer_data';
+const GITHUB_TOKEN_STORAGE_KEY = 'gh_admin_token';
 const GITHUB_OWNER = 'Muntasir-Mamun7';
 const GITHUB_REPO = 'Online-Volunteer-Portal';
 const GITHUB_FILE_PATH = 'data.json';
@@ -342,16 +343,23 @@ async function loadData() {
 }
 
 // ===== Save to GitHub via Contents API =====
+function getGitHubToken() {
+  const token = window.GITHUB_TOKEN ||
+    localStorage.getItem(GITHUB_TOKEN_STORAGE_KEY) ||
+    sessionStorage.getItem(GITHUB_TOKEN_STORAGE_KEY);
+  return token ? token.trim() : '';
+}
+
+function clearGitHubToken() {
+  localStorage.removeItem(GITHUB_TOKEN_STORAGE_KEY);
+  sessionStorage.removeItem(GITHUB_TOKEN_STORAGE_KEY);
+}
+
 async function saveToGitHub() {
-  let token = sessionStorage.getItem('gh_admin_token');
+  const token = getGitHubToken();
   if (!token) {
-    token = prompt(
-      'Enter your GitHub Personal Access Token (with repo write access).\n' +
-      'This will commit data.json so changes are visible to everyone.'
-    );
-    if (!token) return;
-    token = token.trim();
-    sessionStorage.setItem('gh_admin_token', token);
+    alert('Missing GitHub token. Save requires a token stored in your browser (key: gh_admin_token).');
+    return;
   }
 
   const originalText = saveGitHubBtn.textContent;
@@ -373,7 +381,7 @@ async function saveToGitHub() {
 
     if (!getRes.ok) {
       if (getRes.status === 401 || getRes.status === 403) {
-        sessionStorage.removeItem('gh_admin_token');
+        clearGitHubToken();
         alert('GitHub token is invalid or lacks write permission. Token cleared — please try again.');
       } else {
         alert(`GitHub API error fetching file: ${getRes.status} ${getRes.statusText}`);
