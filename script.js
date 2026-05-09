@@ -344,8 +344,7 @@ async function loadData() {
 
 // ===== Save to GitHub via Contents API =====
 function getGitHubToken() {
-  const token = window.GITHUB_TOKEN ||
-    localStorage.getItem(GITHUB_TOKEN_STORAGE_KEY) ||
+  const token = localStorage.getItem(GITHUB_TOKEN_STORAGE_KEY) ||
     sessionStorage.getItem(GITHUB_TOKEN_STORAGE_KEY);
   return token ? token.trim() : '';
 }
@@ -358,7 +357,7 @@ function clearGitHubToken() {
 async function saveToGitHub() {
   const token = getGitHubToken();
   if (!token) {
-    alert('Missing GitHub token. Save requires a token stored in your browser (key: gh_admin_token).');
+    alert('Missing GitHub token. Save requires a token stored in localStorage or sessionStorage (key: gh_admin_token).');
     return;
   }
 
