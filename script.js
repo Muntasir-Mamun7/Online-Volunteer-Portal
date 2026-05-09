@@ -357,7 +357,7 @@ function clearGitHubToken() {
 async function saveToGitHub() {
   const token = getGitHubToken();
   if (!token) {
-    alert('Missing GitHub token. Save requires a token stored in localStorage or sessionStorage (key: gh_admin_token).');
+    alert(`Missing GitHub token. Save requires a token stored in localStorage or sessionStorage (key: ${GITHUB_TOKEN_STORAGE_KEY}).`);
     return;
   }
 
